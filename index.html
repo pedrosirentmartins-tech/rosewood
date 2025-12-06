@@ -45,7 +45,6 @@ footer{text-align:center;color:var(--muted);margin:18px 0;font-size:13px}
 .toast{position:fixed;right:20px;bottom:20px;background:#111;color:#fff;padding:10px 14px;border-radius:8px;display:none}
 </style>
 
-<!-- FIREBASE -->
 <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
 <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
 <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
@@ -64,33 +63,27 @@ footer{text-align:center;color:var(--muted);margin:18px 0;font-size:13px}
 <div class="panel" id="formPanel">
 <h2>Novo cadastro / Editar</h2>
 <form id="form">
-<input type="hidden" id="editingId">
-<label>Nome</label>
-<input id="nome" required>
-
-<label>CPF</label>
-<input id="cpf">
+<label>Nome</label><input id="nome" required>
+<label>CPF</label><input id="cpf">
 
 <div class="row">
 <div><label>Idade</label><input id="idade" type="number"></div>
 <div><label>Altura</label><input id="altura"></div>
-<div>
-<label>Tipo sanguíneo</label>
+<div><label>Sangue</label>
 <select id="sangue">
-<option></option>
-<option>A+</option>
-<option>A-</option>
-<option>B+</option>
-<option>B-</option>
-</select>
-</div>
+<option></option><option>A+</option><option>A-</option><option>B+</option><option>B-</option>
+</select></div>
 </div>
 
 <label>Observações</label>
 <textarea id="obs"></textarea>
 
+<label>Foto</label>
+<input type="file" id="foto" accept="image/*">
+<div id="preview" class="avatar">sem foto</div>
+
 <div class="actions">
-<button type="submit">Salvar</button>
+<button id="salvarBtn" type="submit">Salvar</button>
 <button id="cancelEdit" type="button" class="ghost">Cancelar</button>
 </div>
 </form>
@@ -130,76 +123,76 @@ const firebaseConfig = {
   appId: "1:20548352872:web:c62d40e9dea3efbb80b4dd"
 };
 firebase.initializeApp(firebaseConfig);
+
 const auth = firebase.auth();
 const db = firebase.database();
-
 const ADMINS = ["admin@rosewood.com"];
 
 let editingId = null;
-let cacheData = {};
+let currentPhoto = null;
+let cache = {};
 
-const cards = document.getElementById("cards");
-const buscar = document.getElementById("buscar");
+const preview = document.getElementById("preview");
+const foto = document.getElementById("foto");
+const salvarBtn = document.getElementById("salvarBtn");
+
+foto.onchange = ()=>{
+  const f = foto.files[0];
+  if(!f){preview.innerText="sem foto";currentPhoto=null;return;}
+  const r = new FileReader();
+  r.onload = ()=> {
+    currentPhoto = r.result;
+    preview.innerHTML = `<img src="${currentPhoto}">`;
+  };
+  r.readAsDataURL(f);
+};
 
 function isAdmin(){
   return auth.currentUser && ADMINS.includes(auth.currentUser.email.toLowerCase());
 }
 
 auth.onAuthStateChanged(u=>{
-  document.getElementById("loginBox").style.display = u ? "none" : "flex";
-  document.getElementById("formPanel").style.display = isAdmin()? "block":"none";
-  startListening();
-});
-
-function startListening(){
-  db.ref("cadastros").on("value", snap=>{
-    cacheData = snap.val() || {};
+  loginBox.style.display = u ? "none":"flex";
+  formPanel.style.display = isAdmin()?"block":"none";
+  db.ref("cadastros").on("value", s=>{
+    cache = s.val()||{};
     render();
   });
-}
+});
 
 function render(){
   const q = buscar.value.toLowerCase();
-  cards.innerHTML = "";
-
-  Object.values(cacheData).forEach(p=>{
-    if(
-      (p.nome || "").toLowerCase().includes(q) ||
-      (p.cpf || "").toLowerCase().includes(q)
-    ){
-      const div = document.createElement("div");
-      div.className="card";
-      div.innerHTML=`
-        <div class="info">
+  cards.innerHTML="";
+  Object.values(cache).filter(p=>{
+    return (p.nome||"").toLowerCase().includes(q)||(p.cpf||"").toLowerCase().includes(q);
+  }).forEach(p=>{
+    const div = document.createElement("div");
+    div.className="card";
+    div.innerHTML = `
+      <div class="avatar">${p.foto?`<img src="${p.foto}">`:""}</div>
+      <div class="info">
         <h3>${p.nome}</h3>
         <div class="meta">CPF: ${p.cpf}</div>
-        <div class="meta">Sangue: ${p.sangue}</div>
+        <div class="meta">Idade: ${p.idade} | Sangue: ${p.sangue}</div>
         <div class="obs">${p.obs||""}</div>
-        </div>
-      `;
-      cards.appendChild(div);
-    }
+        ${isAdmin()?`
+        <div class="controls">
+        <button onclick="edit('${p.id}')" class="small">Editar</button>
+        <button onclick="del('${p.id}')" class="small ghost">Excluir</button>
+        </div>`:""}
+      </div>
+    `;
+    cards.appendChild(div);
   });
 }
 
-buscar.addEventListener("input", render);
+buscar.oninput = render;
 
-document.getElementById("btnEntrar").onclick = ()=>{
-  auth.signInWithEmailAndPassword(loginEmail.value, loginSenha.value)
-    .catch(e=>loginMsg.innerText=e.message);
-};
-
-document.getElementById("btnRegistrar").onclick = ()=>{
-  auth.createUserWithEmailAndPassword(loginEmail.value, loginSenha.value)
-    .catch(e=>loginMsg.innerText=e.message);
-};
-
-document.getElementById("form").onsubmit = e=>{
+form.onsubmit = e=>{
   e.preventDefault();
-  if(!isAdmin()) return alert("Apenas administrador");
+  if(!isAdmin()) return alert("Restrito a administrador");
 
   const id = editingId || db.ref("cadastros").push().key;
-
   db.ref("cadastros/"+id).set({
     id,
     nome:nome.value,
@@ -207,12 +200,44 @@ document.getElementById("form").onsubmit = e=>{
     idade:idade.value,
     altura:altura.value,
     sangue:sangue.value,
-    obs:obs.value
+    obs:obs.value,
+    foto:currentPhoto||""
   });
-
-  e.target.reset();
-  editingId=null;
+  reset();
 };
+
+function edit(id){
+  const p = cache[id];
+  editingId=id;
+  nome.value=p.nome;
+  cpf.value=p.cpf;
+  idade.value=p.idade;
+  altura.value=p.altura;
+  sangue.value=p.sangue;
+  obs.value=p.obs;
+  currentPhoto=p.foto;
+  preview.innerHTML = currentPhoto?`<img src="${currentPhoto}">`:"sem foto";
+  salvarBtn.innerText="Salvar alteração";
+}
+
+function del(id){
+  if(confirm("Apagar este cadastro?")){
+    db.ref("cadastros/"+id).remove();
+  }
+}
+
+function reset(){
+  editingId=null;
+  form.reset();
+  preview.innerText="sem foto";
+  salvarBtn.innerText="Salvar";
+}
+
+btnEntrar.onclick = ()=>auth.signInWithEmailAndPassword(loginEmail.value,loginSenha.value)
+  .catch(e=>loginMsg.innerText=e.message);
+
+btnRegistrar.onclick = ()=>auth.createUserWithEmailAndPassword(loginEmail.value,loginSenha.value)
+  .catch(e=>loginMsg.innerText=e.message);
 </script>
 
 </body>
