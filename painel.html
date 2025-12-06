@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<title>Painel | Rosewood</title>
+<meta name="viewport" content="width=device-width">
+
+<style>
+body {
+  margin:0;
+  background:#f4f4f4;
+  font-family: Arial;
+}
+header {
+  background:#2b003d;
+  color:white;
+  padding:15px;
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+}
+main {
+  padding:20px;
+}
+button {
+  padding:10px;
+  border:none;
+  background:#ff2b9e;
+  color:white;
+  border-radius:5px;
+  cursor:pointer;
+}
+.area {
+  margin-top:20px;
+  background:white;
+  padding:15px;
+  border-radius:8px;
+}
+.admin {
+  display:none;
+}
+</style>
+</head>
+
+<body>
+
+<header>
+  <div>Rosewood Medical Center</div>
+  <button onclick="logout()">Sair</button>
+</header>
+
+<main>
+
+<h2 id="cargo"></h2>
+
+<div class="area">
+  <h3>Banco de Dados</h3>
+  <p>Visualização liberada</p>
+</div>
+
+<div class="area admin" id="admin">
+  <h3>Painel do Administrador</h3>
+  <button>Adicionar</button>
+  <button>Editar</button>
+  <button>Excluir</button>
+</div>
+
+</main>
+
+<script>
+const usuario = JSON.parse(localStorage.getItem("usuario"));
+
+if(!usuario){
+  location.href="index.html";
+}
+
+cargo.innerHTML = "Logado como: " + usuario.user + " (" + usuario.role + ")";
+
+if(usuario.role=="admin"){
+  document.getElementById("admin").style.display="block";
+}
+
+function logout(){
+  localStorage.clear();
+  location.href="index.html";
+}
+</script>
+
+</body>
+</html>
