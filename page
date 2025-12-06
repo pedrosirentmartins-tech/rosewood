@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Rosewood Medical Center</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<style>
+body {
+  margin: 0;
+  font-family: Arial, sans-serif;
+  background: linear-gradient(135deg, #1f1f2e, #3b0066);
+  height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  color: white;
+}
+
+.login-box {
+  background: rgba(0,0,0,0.6);
+  padding: 30px;
+  border-radius: 15px;
+  width: 320px;
+  text-align: center;
+  box-shadow: 0 0 20px #000;
+  animation: fade 1.2s ease;
+}
+
+@keyframes fade {
+  from {opacity:0; transform: translateY(20px);}
+  to {opacity:1; transform: translateY(0);}
+}
+
+.login-box img {
+  width: 90px;
+  margin-bottom: 10px;
+}
+
+.login-box h2 {
+  margin-bottom: 20px;
+  font-weight: normal;
+}
+
+.login-box input {
+  width: 100%;
+  padding: 10px;
+  margin: 8px 0;
+  border: none;
+  border-radius: 8px;
+  outline: none;
+}
+
+.login-box button {
+  width: 100%;
+  padding: 12px;
+  background: #ff2b9e;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  margin-top: 15px;
+  font-size: 15px;
+}
+
+.login-box button:hover {
+  background: #ff5bb5;
+}
+
+.erro {
+  color: #ff8686;
+  margin-top: 10px;
+  display:none;
+}
+
+.loading {
+  display: none;
+  margin-top: 10px;
+}
+</style>
+
+</head>
+<body>
+
+<div class="login-box">
+  <img src="https://i.imgur.com/wv6Uhnk.png">
+  <h2>Rosewood Medical Center</h2>
+
+  <input type="text" id="user" placeholder="Usuário" />
+  <input type="password" id="pass" placeholder="Senha" />
+
+  <button onclick="login()">Entrar</button>
+
+  <div class="erro" id="erro">Usuário ou senha incorretos</div>
+  <div class="loading" id="loading">Verificando...</div>
+</div>
+
+<script>
+// USUÁRIOS
+const usuarios = [
+  {user:"admin", pass:"1234", role:"admin"},
+  {user:"visitante", pass:"0000", role:"user"}
+];
+
+function login(){
+  const u = user.value.trim();
+  const p = pass.value.trim();
+  erro.style.display="none";
+  loading.style.display="block";
+
+  setTimeout(()=>{
+
+    const encontrado = usuarios.find(x=>x.user==u && x.pass==p);
+
+    if(!encontrado){
+      erro.style.display="block";
+      loading.style.display="none";
+      return;
+    }
+
+    localStorage.setItem("usuario", JSON.stringify(encontrado));
+    location.href = "painel.html";
+
+  },1000);
+}
+</script>
+
+</body>
+</html>
