@@ -1,129 +1,447 @@
-<!DOCTYPE html>
-<html lang="pt-BR">
+<!doctype html>
+<html lang="pt-br">
 <head>
-<meta charset="UTF-8">
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Rosewood Medical Center</title>
-<meta name="viewport" content="width=device-width, initial-scale=1">
 
+<!-- styles (keeps your layout but cleaner & professional) -->
 <style>
-body {
-  margin: 0;
-  font-family: Arial, sans-serif;
-  background: linear-gradient(135deg, #1f1f2e, #3b0066);
-  height: 100vh;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  color: white;
+:root{
+  --accent:#ff2b9e;
+  --accent-strong:#d81b7a;
+  --muted:#666;
+  --card-bg:#fff;
+  --bg:#faf7fb;
 }
+*{box-sizing:border-box}
+body{font-family:Inter, Arial, sans-serif; margin:0; background:var(--bg); color:#111}
+header{display:flex;align-items:center;gap:18px;padding:18px 24px;border-bottom:1px solid #eee;background:linear-gradient(90deg,#fff,#fff);}
+header img{height:72px;width:auto}
+header h1{font-size:18px;margin:0;color:var(--accent-strong)}
+.wrap{max-width:1100px;margin:28px auto;padding:0 18px}
+.grid{display:grid;grid-template-columns:1fr 420px;gap:24px}
+.panel{background:var(--card-bg);padding:18px;border-radius:12px;box-shadow:0 8px 28px rgba(16,8,33,0.04)}
+label{display:block;margin-top:10px;font-size:13px;color:var(--muted)}
+input,select,textarea{width:100%;padding:10px;margin-top:6px;border:1px solid #e9e6ea;border-radius:8px;font-size:14px}
+.row{display:flex;gap:10px;flex-wrap:wrap}
+.row>div{flex:1;min-width:120px}
+.actions{display:flex;gap:8px;justify-content:flex-end;margin-top:12px}
+button{background:var(--accent);color:#fff;border:none;padding:10px 14px;border-radius:8px;cursor:pointer;font-weight:600}
+button.ghost{background:transparent;color:var(--accent-strong);border:1px solid rgba(216,27,122,0.06);padding:9px}
+.small{font-size:13px;padding:6px 10px}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:14px;margin-top:14px}
+.card{background:#fff;border-radius:10px;padding:12px;border:1px solid rgba(240,200,230,0.4);display:flex;gap:10px;align-items:flex-start}
+.avatar{width:76px;height:76px;border-radius:10px;overflow:hidden;background:#fbf0f7;display:flex;align-items:center;justify-content:center}
+.avatar img{width:100%;height:100%;object-fit:cover}
+.info h3{margin:0;font-size:16px;color:var(--accent-strong)}
+.info .meta{font-size:13px;color:var(--muted);margin-top:6px}
+.info .obs{font-size:13px;margin-top:8px;color:#333}
+.card .controls{display:flex;gap:8px;margin-top:10px}
+.confirm {background:#fff;border:1px solid #eee;padding:10px;border-radius:8px}
+footer{text-align:center;color:var(--muted);margin:18px 0;font-size:13px}
 
-.login-box {
-  background: rgba(0,0,0,0.6);
-  padding: 30px;
-  border-radius: 15px;
-  width: 320px;
-  text-align: center;
-  box-shadow: 0 0 20px #000;
-  animation: fade 1.2s ease;
-}
+/* login overlay */
+#loginBox{position:fixed;inset:0;background:linear-gradient(180deg, rgba(15,7,24,0.6), rgba(15,7,24,0.6));display:flex;align-items:center;justify-content:center;z-index:9999}
+.loginCard{width:360px;background:#fff;padding:20px;border-radius:12px;box-shadow:0 20px 60px rgba(2,0,12,0.35);text-align:center}
+.loginCard img{height:70px;margin-bottom:8px}
+.loginCard h2{margin:6px 0 10px;font-weight:600}
+.loginRow{display:flex;gap:8px}
+.loginSmall{font-size:13px;color:var(--muted);margin-top:8px}
+.toast{position:fixed;right:20px;bottom:20px;background:#111;color:#fff;padding:10px 14px;border-radius:8px;display:none;z-index:99999}
 
-@keyframes fade {
-  from {opacity:0; transform: translateY(20px);}
-  to {opacity:1; transform: translateY(0);}
-}
-
-.login-box img {
-  width: 90px;
-  margin-bottom: 10px;
-}
-
-.login-box h2 {
-  margin-bottom: 20px;
-  font-weight: normal;
-}
-
-.login-box input {
-  width: 100%;
-  padding: 10px;
-  margin: 8px 0;
-  border: none;
-  border-radius: 8px;
-  outline: none;
-}
-
-.login-box button {
-  width: 100%;
-  padding: 12px;
-  background: #ff2b9e;
-  color: white;
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
-  margin-top: 15px;
-  font-size: 15px;
-}
-
-.login-box button:hover {
-  background: #ff5bb5;
-}
-
-.erro {
-  color: #ff8686;
-  margin-top: 10px;
-  display:none;
-}
-
-.loading {
-  display: none;
-  margin-top: 10px;
-}
+/* responsive */
+@media(max-width:980px){.grid{grid-template-columns:1fr}.header img{height:56px}}
 </style>
 
+<!-- Firebase (v8) -->
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
 </head>
+
 <body>
+<header>
+  <img src="https://i.imgur.com/wv6Uhnk.png" alt="logo">
+  <div>
+    <h1>Rosewood Medical Center</h1>
+    <div style="font-size:13px;color:var(--muted)">Base de dados de pacientes — Demonstração</div>
+  </div>
+</header>
 
-<div class="login-box">
-  <img src="https://i.imgur.com/wv6Uhnk.png">
-  <h2>Rosewood Medical Center</h2>
+<main class="wrap">
+  <div class="grid">
+    <!-- form panel -->
+    <div class="panel" id="formPanel">
+      <h2>Novo cadastro / Editar</h2>
+      <form id="form">
+        <input type="hidden" id="editingId" value="">
+        <label>Nome</label>
+        <input id="nome" required placeholder="Nome completo">
+        <label>CPF</label>
+        <input id="cpf" placeholder="CPF (livre)">
+        <div class="row">
+          <div>
+            <label>Idade</label>
+            <input id="idade" type="number" min="0" placeholder="Idade">
+          </div>
+          <div>
+            <label>Altura (m)</label>
+            <input id="altura" placeholder="1.75">
+          </div>
+          <div>
+            <label>Tipo Sanguíneo</label>
+            <select id="sangue">
+              <option value="">--</option>
+              <option>A+</option>
+              <option>A-</option>
+              <option>B+</option>
+              <option>B-</option>
+            </select>
+          </div>
+        </div>
 
-  <input type="text" id="user" placeholder="Usuário" />
-  <input type="password" id="pass" placeholder="Senha" />
+        <label>Observações</label>
+        <textarea id="obs" rows="3" placeholder="Alergias, condições..."></textarea>
 
-  <button onclick="login()">Entrar</button>
+        <label>Foto</label>
+        <input id="foto" type="file" accept="image/*">
+        <div style="display:flex;gap:12px;align-items:center;margin-top:10px">
+          <div id="preview" style="width:72px;height:72px;border-radius:10px;overflow:hidden;background:#faf4f8;border:1px solid #eee;display:flex;align-items:center;justify-content:center">sem foto</div>
+          <div style="flex:1"></div>
+        </div>
 
-  <div class="erro" id="erro">Usuário ou senha incorretos</div>
-  <div class="loading" id="loading">Verificando...</div>
+        <div class="actions">
+          <button id="salvarBtn" type="submit">Salvar</button>
+          <button id="cancelEdit" type="button" class="ghost">Cancelar</button>
+          <button id="apagarTudo" type="button" class="ghost" style="background:#eee;color:#000">Apagar todos</button>
+        </div>
+        <div style="font-size:13px;color:#9a0a66;margin-top:10px">
+          Atenção: para produção use regras de segurança no Firebase.
+        </div>
+      </form>
+    </div>
+
+    <!-- list panel -->
+    <div class="panel">
+      <h2>Banco de dados</h2>
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px">
+        <input id="buscar" placeholder="Buscar por nome ou CPF" style="flex:1;padding:10px;border-radius:8px;border:1px solid #eee">
+        <button id="exportBtn" class="small ghost" type="button">Exportar Excel</button>
+      </div>
+
+      <div id="cards" class="cards" aria-live="polite"></div>
+    </div>
+  </div>
+
+  <footer>Demo — use com responsabilidade. Para produção, configure autenticação + regras no Firebase.</footer>
+</main>
+
+<!-- login overlay (injected by JS when needed) -->
+<div id="loginBox" style="display:none;">
+  <div class="loginCard" role="dialog" aria-modal="true" aria-label="Login">
+    <img src="https://i.imgur.com/wv6Uhnk.png" alt="logo">
+    <h2>Entrar</h2>
+    <input id="loginEmail" type="email" placeholder="Email" style="width:100%;padding:10px;margin:8px 0;border-radius:8px;border:1px solid #eee">
+    <input id="loginSenha" type="password" placeholder="Senha" style="width:100%;padding:10px;margin:8px 0;border-radius:8px;border:1px solid #eee">
+    <div style="display:flex;gap:8px">
+      <button id="btnEntrar" style="flex:1;background:var(--accent)">Entrar</button>
+      <button id="btnRegistrar" style="flex:1;background:#666">Registrar</button>
+    </div>
+    <div class="loginSmall" id="loginMsg"></div>
+  </div>
 </div>
 
+<div id="toast" class="toast"></div>
+
+<!-- Firebase + App logic -->
 <script>
-// USUÁRIOS
-const usuarios = [
-  {user:"admin", pass:"1234", role:"admin"},
-  {user:"visitante", pass:"0000", role:"user"}
-];
+/* ===========================
+   CONFIGURAÇÃO FIREBASE (já colocada por você)
+   =========================== */
+// substitua pelo seu firebaseConfig se necessário (já presente na sua versão)
+const firebaseConfig = {
+  apiKey: "AIzaSyBRFlVvCNQRj9QEQcfcTPWJVletd34vu2g",
+  authDomain: "rosewood-a17a5.firebaseapp.com",
+  databaseURL: "https://rosewood-a17a5-default-rtdb.firebaseio.com",
+  projectId: "rosewood-a17a5",
+  storageBucket: "rosewood-a17a5.firebasestorage.app",
+  messagingSenderId: "20548352872",
+  appId: "1:20548352872:web:c62d40e9dea3efbb80b4dd"
+};
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db = firebase.database();
 
-function login(){
-  const u = user.value.trim();
-  const p = pass.value.trim();
-  erro.style.display="none";
-  loading.style.display="block";
+/* ===========================
+   ADMINS — liste aqui os e-mails dos administradores
+   =========================== */
+const ADMINS = ["admin@rosewood.com"]; // ajuste conforme quiser
 
-  setTimeout(()=>{
+/* ===========================
+   ELEMENTOS DOM
+   =========================== */
+const form = document.getElementById('form');
+const salvarBtn = document.getElementById('salvarBtn');
+const cancelEdit = document.getElementById('cancelEdit');
+const apagarTudo = document.getElementById('apagarTudo');
+const buscar = document.getElementById('buscar');
+const cards = document.getElementById('cards');
+const exportBtn = document.getElementById('exportBtn');
 
-    const encontrado = usuarios.find(x=>x.user==u && x.pass==p);
+const preview = document.getElementById('preview');
+const fotoInput = document.getElementById('foto');
 
-    if(!encontrado){
-      erro.style.display="block";
-      loading.style.display="none";
-      return;
-    }
+let currentPhotoData = null;
+let editingId = null;
+let currentUser = null;
 
-    localStorage.setItem("usuario", JSON.stringify(encontrado));
-    location.href = "painel.html";
+/* ===========================
+   UI helpers
+   =========================== */
+function showToast(msg, time = 3000){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.style.display = 'block';
+  setTimeout(()=> t.style.display='none', time);
+}
 
-  },1000);
+/* preview image */
+fotoInput.addEventListener('change', (e)=>{
+  const f = e.target.files[0];
+  if(!f) { preview.innerHTML = 'sem foto'; currentPhotoData = null; return; }
+  const r = new FileReader();
+  r.onload = ()=> {
+    currentPhotoData = r.result;
+    preview.innerHTML = `<img src="${currentPhotoData}" alt="preview" style="width:100%;height:100%;object-fit:cover">`;
+  };
+  r.readAsDataURL(f);
+});
+
+/* ===========================
+   AUTH: show login if not logged
+   =========================== */
+const loginBox = document.getElementById('loginBox');
+const loginEmail = document.getElementById('loginEmail');
+const loginSenha = document.getElementById('loginSenha');
+const btnEntrar = document.getElementById('btnEntrar');
+const btnRegistrar = document.getElementById('btnRegistrar');
+const loginMsg = document.getElementById('loginMsg');
+
+function openLogin(){
+  loginBox.style.display = 'flex';
+  loginEmail.value=''; loginSenha.value=''; loginMsg.textContent='';
+}
+function closeLogin(){ loginBox.style.display='none'; loginMsg.textContent=''; }
+
+btnEntrar.addEventListener('click', ()=>{
+  const e = loginEmail.value.trim(), s = loginSenha.value;
+  if(!e || !s){ loginMsg.textContent = 'Preencha email e senha'; return; }
+  btnEntrar.disabled = true;
+  auth.signInWithEmailAndPassword(e,s)
+    .then(()=> { btnEntrar.disabled=false; })
+    .catch(err => { loginMsg.textContent = err.message; btnEntrar.disabled=false; });
+});
+
+btnRegistrar.addEventListener('click', ()=>{
+  const e = loginEmail.value.trim(), s = loginSenha.value;
+  if(!e || !s){ loginMsg.textContent = 'Preencha email e senha'; return; }
+  btnRegistrar.disabled = true;
+  auth.createUserWithEmailAndPassword(e,s)
+    .then(()=> { btnRegistrar.disabled=false; showToast('Registrado. Você já está logado.'); })
+    .catch(err => { loginMsg.textContent = err.message; btnRegistrar.disabled=false; });
+});
+
+/* react to auth state */
+auth.onAuthStateChanged(user=>{
+  currentUser = user;
+  if(!user){
+    // not logged in
+    openLogin();
+    applyPermissions(false);
+  } else {
+    closeLogin();
+    applyPermissions(true);
+    render(); // initial render after auth ready
+  }
+});
+
+/* ===========================
+   Permissions: admin vs viewer
+   =========================== */
+function isAdmin(){
+  if(!currentUser || !currentUser.email) return false;
+  return ADMINS.includes(currentUser.email.toLowerCase());
+}
+function applyPermissions(logged){
+  const admin = isAdmin();
+  // show/hide form controls depending on admin
+  document.getElementById('formPanel').style.display = admin ? 'block' : 'none';
+  apagarTudo.style.display = admin ? 'inline-block' : 'none';
+  // export button visible to all
+  exportBtn.style.display = 'inline-block';
+}
+
+/* ===========================
+   RENDER / LISTENER
+   =========================== */
+let dbListener = null;
+
+function startListening(){
+  // detach previous if exists
+  if(dbListener) db.ref('cadastros').off('value', dbListener);
+
+  dbListener = db.ref('cadastros').on('value', snap=>{
+    const obj = snap.val() || {};
+    renderList(obj);
+  });
+}
+
+function renderList(dataObj){
+  const q = (buscar.value||'').toLowerCase();
+  cards.innerHTML = '';
+
+  // convert to array and sort newest first
+  const list = Object.values(dataObj || {}).sort((a,b)=> (b._ts||0) - (a._ts||0));
+
+  list.filter(p=>{
+    return (p.nome||'').toLowerCase().includes(q) || (p.cpf||'').toLowerCase().includes(q);
+  }).forEach(p=>{
+    const admin = isAdmin();
+    const card = document.createElement('div');
+    card.className='card';
+    const photoHTML = p.foto ? `<div class="avatar"><img src="${p.foto}" alt="foto"></div>` : `<div class="avatar">no</div>`;
+    card.innerHTML = `
+      ${photoHTML}
+      <div class="info">
+        <h3>${escapeHtml(p.nome||'—')}</h3>
+        <div class="meta">Idade: ${escapeHtml(p.idade||'—')} • Altura: ${escapeHtml(p.altura||'—')}m • Sangue: ${escapeHtml(p.sangue||'—')}</div>
+        <div class="meta">CPF: ${escapeHtml(p.cpf||'—')}</div>
+        ${p.obs ? `<div class="obs">${escapeHtml(p.obs)}</div>` : ''}
+        <div class="controls">
+          ${admin ? `<button class="small" data-edit="${p.id}">Editar</button><button class="small" data-del="${p.id}" style="background:#fff;color:var(--accent-strong);border:1px solid rgba(216,27,122,0.1)">Deletar</button>` : ''}
+        </div>
+      </div>
+    `;
+    cards.appendChild(card);
+  });
+
+  // attach delegated listeners for edit/delete
+  cards.querySelectorAll('[data-edit]').forEach(b=> b.onclick = ()=> startEdit(b.dataset.edit));
+  cards.querySelectorAll('[data-del]').forEach(b=> b.onclick = ()=> confirmDelete(b.dataset.del));
+}
+
+/* ===========================
+   CRUD functions
+   =========================== */
+form.onsubmit = async (e) => {
+  e.preventDefault();
+  if(!isAdmin()){ showToast('Você precisa ser administrador para salvar.'); return; }
+
+  const id = editingId || db.ref('cadastros').push().key;
+  const data = {
+    id,
+    nome: nome.value.trim(),
+    cpf: cpf.value.trim(),
+    idade: idade.value ? Number(idade.value) : '',
+    altura: altura.value.trim(),
+    sangue: sangue.value,
+    obs: obs.value.trim(),
+    foto: currentPhotoData || '',
+    _ts: Date.now()
+  };
+
+  try {
+    await db.ref('cadastros/' + id).set(data);
+    showToast(editingId ? 'Cadastro atualizado' : 'Cadastro criado');
+    resetForm();
+  } catch(err) {
+    showToast('Erro ao salvar: ' + err.message);
+  }
+};
+
+function startEdit(id){
+  db.ref('cadastros/' + id).once('value').then(s=>{
+    const p = s.val();
+    if(!p) return showToast('Registro não encontrado');
+    editingId = id;
+    nome.value = p.nome || '';
+    cpf.value = p.cpf || '';
+    idade.value = p.idade || '';
+    altura.value = p.altura || '';
+    sangue.value = p.sangue || '';
+    obs.value = p.obs || '';
+    currentPhotoData = p.foto || null;
+    if(currentPhotoData){ preview.innerHTML = `<img src="${currentPhotoData}" alt="preview" style="width:100%;height:100%;object-fit:cover">`; }
+    salvarBtn.textContent = 'Salvar alteração';
+    window.scrollTo({top:0,behavior:'smooth'});
+  });
+}
+
+function confirmDelete(id){
+  if(!isAdmin()){ showToast('Permissão negada'); return; }
+  if(confirm('Deseja realmente apagar este cadastro?')) {
+    db.ref('cadastros/' + id).remove().then(()=> showToast('Apagado'));
+  }
+}
+
+apagarTudo.onclick = () => {
+  if(!isAdmin()){ showToast('Permissão negada'); return; }
+  if(confirm('Deseja apagar TODOS os cadastros? Esta ação é irreversível.')) {
+    db.ref('cadastros').remove().then(()=> showToast('Todos os cadastros apagados'));
+  }
+};
+
+/* ===========================
+   utility: reset form
+   =========================== */
+function resetForm(){
+  editingId = null;
+  form.reset();
+  currentPhotoData = null;
+  preview.innerHTML = 'sem foto';
+  salvarBtn.textContent = 'Salvar';
+}
+
+/* ===========================
+   export to excel (xls) - client side
+   =========================== */
+exportBtn.addEventListener('click', ()=>{
+  db.ref('cadastros').once('value').then(s=>{
+    const arr = Object.values(s.val() || {});
+    let tabela = '<table><tr><th>Nome</th><th>CPF</th><th>Idade</th><th>Altura</th><th>Sangue</th><th>Obs</th></tr>';
+    arr.forEach(p=>{
+      tabela += `<tr><td>${escapeHtml(p.nome||'')}</td><td>${escapeHtml(p.cpf||'')}</td><td>${escapeHtml(p.idade||'')}</td><td>${escapeHtml(p.altura||'')}</td><td>${escapeHtml(p.sangue||'')}</td><td>${escapeHtml(p.obs||'')}</td></tr>`;
+    });
+    tabela += '</table>';
+    const a = document.createElement('a');
+    a.href = 'data:application/vnd.ms-excel,' + encodeURIComponent(tabela);
+    a.download = 'backup.xls';
+    a.click();
+  });
+});
+
+/* ===========================
+   search input listener
+   =========================== */
+buscar.addEventListener('input', ()=> {
+  // debounce: small delay
+  clearTimeout(window._tBusca);
+  window._tBusca = setTimeout(()=> render(), 180);
+});
+
+/* ===========================
+   start
+   =========================== */
+startListening();
+
+/* ===========================
+   helpers
+   =========================== */
+function escapeHtml(str){
+  if(!str && str !== 0) return '';
+  return String(str).replace(/[&<>"'`]/g, s => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;',"`":'&#96;'}[s]));
 }
 </script>
-
 </body>
 </html>
