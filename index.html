@@ -43,6 +43,19 @@ footer{text-align:center;color:var(--muted);margin:18px 0;font-size:13px}
 .loginCard{width:360px;background:#fff;padding:20px;border-radius:12px;box-shadow:0 20px 60px rgba(2,0,12,0.35);text-align:center}
 .loginCard img{height:70px;margin-bottom:8px}
 .toast{position:fixed;right:20px;bottom:20px;background:#111;color:#fff;padding:10px 14px;border-radius:8px;display:none}
+.logoutBtnHeader{
+  margin-left:auto;
+  background:#333;
+  color:#fff;
+  padding:8px 14px;
+  border-radius:8px;
+  display:none;
+  border:none;
+  cursor:pointer;
+}
+@media(max-width:720px){
+  .logoutBtnHeader{display:none}
+}
 </style>
 
 <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
@@ -53,8 +66,10 @@ footer{text-align:center;color:var(--muted);margin:18px 0;font-size:13px}
 <body>
 
 <header>
-  <img src="https://i.imgur.com/wv6Uhnk.png">
+  <img src="https://i.imgur.com/wv6Uhnk.png" alt="logo">
   <h1>Rosewood Medical Center</h1>
+  <!-- botão logout (escondido por padrão; aparece ao logar) -->
+  <button id="logoutBtn" class="logoutBtnHeader">Logout</button>
 </header>
 
 <main class="wrap">
@@ -84,7 +99,7 @@ footer{text-align:center;color:var(--muted);margin:18px 0;font-size:13px}
 
 <div class="actions">
 <button id="salvarBtn" type="submit">Salvar</button>
-<button id="cancelEdit" type="button" class="ghost">Cancelar</button>
+<button id="cancelEdit" type="button" class="ghost" style="display:none">Cancelar</button>
 </div>
 </form>
 </div>
@@ -100,19 +115,24 @@ footer{text-align:center;color:var(--muted);margin:18px 0;font-size:13px}
 
 <div id="loginBox">
 <div class="loginCard">
-<img src="https://i.imgur.com/wv6Uhnk.png">
+<img src="https://i.imgur.com/wv6Uhnk.png" alt="logo">
 <h2>Login</h2>
 <input id="loginEmail" placeholder="Email">
 <input id="loginSenha" type="password" placeholder="Senha">
-<button id="btnEntrar">Entrar</button>
-<button id="btnRegistrar">Registrar</button>
-<div id="loginMsg"></div>
+<div style="display:flex;gap:8px;margin-top:8px">
+  <button id="btnEntrar" style="flex:1">Entrar</button>
+  <button id="btnRegistrar" style="flex:1;background:#666">Registrar</button>
+</div>
+<div id="loginMsg" style="margin-top:8px;color:#a00"></div>
 </div>
 </div>
 
 <div id="toast" class="toast"></div>
 
 <script>
+/* =========================
+   FIREBASE
+   ========================= */
 const firebaseConfig = {
   apiKey: "AIzaSyBRFlVvCNQRj9QEQcfcTPWJVletd34vu2g",
   authDomain: "rosewood-a17a5.firebaseapp.com",
@@ -123,121 +143,279 @@ const firebaseConfig = {
   appId: "1:20548352872:web:c62d40e9dea3efbb80b4dd"
 };
 firebase.initializeApp(firebaseConfig);
-
 const auth = firebase.auth();
 const db = firebase.database();
-const ADMINS = ["admin@rosewood.com"];
+
+/* =========================
+   CONFIG
+   ========================= */
+const ADMINS = ["admin@rosewood.com"]; // coloque os e-mails de admin aqui
+const AUTO_LOGOUT_MS = 6 * 60 * 60 * 1000; // 6 horas em ms
+
+/* =========================
+   ELEMENTS
+   ========================= */
+const form = document.getElementById('form');
+const formPanel = document.getElementById('formPanel');
+const salvarBtn = document.getElementById('salvarBtn');
+const cancelEdit = document.getElementById('cancelEdit');
+const buscar = document.getElementById('buscar');
+const cards = document.getElementById('cards');
+const preview = document.getElementById('preview');
+const foto = document.getElementById('foto');
+const logoutBtn = document.getElementById('logoutBtn');
+
+const loginBox = document.getElementById('loginBox');
+const loginEmail = document.getElementById('loginEmail');
+const loginSenha = document.getElementById('loginSenha');
+const btnEntrar = document.getElementById('btnEntrar');
+const btnRegistrar = document.getElementById('btnRegistrar');
+const loginMsg = document.getElementById('loginMsg');
 
 let editingId = null;
 let currentPhoto = null;
 let cache = {};
+let sessionTimer = null;
 
-const preview = document.getElementById("preview");
-const foto = document.getElementById("foto");
-const salvarBtn = document.getElementById("salvarBtn");
+/* =========================
+   HELPERS
+   ========================= */
+function showToast(msg, time=3000){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.style.display = 'block';
+  clearTimeout(t._to);
+  t._to = setTimeout(()=> t.style.display='none', time);
+}
 
-foto.onchange = ()=>{
-  const f = foto.files[0];
-  if(!f){preview.innerText="sem foto";currentPhoto=null;return;}
+function isAdmin(){
+  return auth.currentUser && auth.currentUser.email && ADMINS.includes(auth.currentUser.email.toLowerCase());
+}
+
+/* =========================
+   IMAGE PREVIEW
+   ========================= */
+foto.addEventListener('change', (e)=>{
+  const f = e.target.files[0];
+  if(!f){ preview.innerText = 'sem foto'; currentPhoto = null; return; }
   const r = new FileReader();
   r.onload = ()=> {
     currentPhoto = r.result;
-    preview.innerHTML = `<img src="${currentPhoto}">`;
+    preview.innerHTML = `<img src="${currentPhoto}" alt="foto">`;
   };
   r.readAsDataURL(f);
-};
-
-function isAdmin(){
-  return auth.currentUser && ADMINS.includes(auth.currentUser.email.toLowerCase());
-}
-
-auth.onAuthStateChanged(u=>{
-  loginBox.style.display = u ? "none":"flex";
-  formPanel.style.display = isAdmin()?"block":"none";
-  db.ref("cadastros").on("value", s=>{
-    cache = s.val()||{};
-    render();
-  });
 });
 
+/* =========================
+   AUTH (login/register/logout + auto-logout)
+   ========================= */
+btnEntrar.addEventListener('click', ()=>{
+  loginMsg.textContent = '';
+  const e = (loginEmail.value||'').trim();
+  const s = loginSenha.value;
+  if(!e || !s){ loginMsg.textContent = 'Preencha email e senha'; return; }
+  btnEntrar.disabled = true;
+  auth.signInWithEmailAndPassword(e,s)
+    .catch(err=> loginMsg.textContent = err.message)
+    .finally(()=> btnEntrar.disabled = false);
+});
+
+btnRegistrar.addEventListener('click', ()=>{
+  loginMsg.textContent = '';
+  const e = (loginEmail.value||'').trim();
+  const s = loginSenha.value;
+  if(!e || !s){ loginMsg.textContent = 'Preencha email e senha'; return; }
+  btnRegistrar.disabled = true;
+  auth.createUserWithEmailAndPassword(e,s)
+    .then(()=> showToast('Registrado com sucesso — já logado'))
+    .catch(err=> loginMsg.textContent = err.message)
+    .finally(()=> btnRegistrar.disabled = false);
+});
+
+logoutBtn.addEventListener('click', ()=>{
+  auth.signOut();
+});
+
+/* Start/Reset session timer */
+function startSessionTimer(){
+  if(sessionTimer) clearTimeout(sessionTimer);
+  sessionTimer = setTimeout(()=>{
+    alert('Sua sessão expirou. Faça login novamente.');
+    auth.signOut();
+  }, AUTO_LOGOUT_MS);
+}
+
+/* on auth change */
+auth.onAuthStateChanged(u=>{
+  if(!u){
+    // show login overlay
+    loginBox.style.display = 'flex';
+    formPanel.style.display = 'none';
+    logoutBtn.style.display = 'none';
+    // clear cached data
+    cache = {};
+    render();
+    return;
+  }
+  // logged in
+  loginBox.style.display = 'none';
+  logoutBtn.style.display = 'inline-block';
+  aplicarPermissoes();
+  // start listener and session timer
+  startListening();
+  startSessionTimer();
+});
+
+/* =========================
+   PERMISSIONS / LISTENING
+   ========================= */
+function aplicarPermissoes(){
+  formPanel.style.display = isAdmin() ? 'block' : 'none';
+}
+
+function startListening(){
+  // attach once: we will use on('value') so it stays synced
+  db.ref('cadastros').on('value', snap=>{
+    cache = snap.val() || {};
+    render();
+  });
+}
+
+/* =========================
+   RENDER / SEARCH
+   ========================= */
 function render(){
-  const q = buscar.value.toLowerCase();
-  cards.innerHTML="";
-  Object.values(cache).filter(p=>{
-    return (p.nome||"").toLowerCase().includes(q)||(p.cpf||"").toLowerCase().includes(q);
-  }).forEach(p=>{
-    const div = document.createElement("div");
-    div.className="card";
-    div.innerHTML = `
-      <div class="avatar">${p.foto?`<img src="${p.foto}">`:""}</div>
+  const q = (buscar.value||'').toLowerCase();
+  cards.innerHTML = '';
+
+  // prevent crash when cache empty
+  const arr = Object.values(cache || {});
+  // newest first if _ts available
+  arr.sort((a,b)=> (b._ts||0) - (a._ts||0));
+
+  arr.forEach(p=>{
+    const nome = (p.nome||'').toLowerCase();
+    const cpf = (p.cpf||'').toLowerCase();
+    if(q && !nome.includes(q) && !cpf.includes(q)) return;
+
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.innerHTML = `
+      <div class="avatar">${p.foto?`<img src="${p.foto}" alt="foto">`:""}</div>
       <div class="info">
-        <h3>${p.nome}</h3>
-        <div class="meta">CPF: ${p.cpf}</div>
-        <div class="meta">Idade: ${p.idade} | Sangue: ${p.sangue}</div>
-        <div class="obs">${p.obs||""}</div>
-        ${isAdmin()?`
-        <div class="controls">
-        <button onclick="edit('${p.id}')" class="small">Editar</button>
-        <button onclick="del('${p.id}')" class="small ghost">Excluir</button>
-        </div>`:""}
+        <h3>${escapeHtml(p.nome||'—')}</h3>
+        <div class="meta">CPF: ${escapeHtml(p.cpf||'—')}</div>
+        <div class="meta">Idade: ${escapeHtml(p.idade||'—')} | Sangue: ${escapeHtml(p.sangue||'—')}</div>
+        ${p.obs?`<div class="obs">${escapeHtml(p.obs)}</div>`:''}
+        ${isAdmin()?`<div class="controls"><button class="small" data-edit="${p.id}">Editar</button><button class="small ghost" data-del="${p.id}">Excluir</button></div>`:''}
       </div>
     `;
-    cards.appendChild(div);
+    cards.appendChild(card);
   });
+
+  // delegate listeners
+  cards.querySelectorAll('[data-edit]').forEach(b=> b.onclick = ()=> startEdit(b.dataset.edit));
+  cards.querySelectorAll('[data-del]').forEach(b=> b.onclick = ()=> doDelete(b.dataset.del));
 }
 
-buscar.oninput = render;
+buscar.addEventListener('input', ()=>{
+  // reset session timer on activity (optional)
+  if(auth.currentUser) startSessionTimer();
+  render();
+});
 
-form.onsubmit = e=>{
+/* =========================
+   CRUD: create / update / delete
+   ========================= */
+form.addEventListener('submit', async (e)=>{
   e.preventDefault();
-  if(!isAdmin()) return alert("Restrito a administrador");
+  if(!isAdmin()){ alert('Apenas administradores podem salvar'); return; }
 
-  const id = editingId || db.ref("cadastros").push().key;
-  db.ref("cadastros/"+id).set({
+  const id = editingId || db.ref('cadastros').push().key;
+  const data = {
     id,
-    nome:nome.value,
-    cpf:cpf.value,
-    idade:idade.value,
-    altura:altura.value,
-    sangue:sangue.value,
-    obs:obs.value,
-    foto:currentPhoto||""
-  });
-  reset();
-};
+    nome: (document.getElementById('nome').value||'').trim(),
+    cpf: (document.getElementById('cpf').value||'').trim(),
+    idade: (document.getElementById('idade').value||'').trim(),
+    altura: (document.getElementById('altura').value||'').trim(),
+    sangue: (document.getElementById('sangue').value||'').trim(),
+    obs: (document.getElementById('obs').value||'').trim(),
+    foto: currentPhoto || '',
+    _ts: Date.now()
+  };
 
-function edit(id){
-  const p = cache[id];
-  editingId=id;
-  nome.value=p.nome;
-  cpf.value=p.cpf;
-  idade.value=p.idade;
-  altura.value=p.altura;
-  sangue.value=p.sangue;
-  obs.value=p.obs;
-  currentPhoto=p.foto;
-  preview.innerHTML = currentPhoto?`<img src="${currentPhoto}">`:"sem foto";
-  salvarBtn.innerText="Salvar alteração";
-}
-
-function del(id){
-  if(confirm("Apagar este cadastro?")){
-    db.ref("cadastros/"+id).remove();
+  try{
+    await db.ref('cadastros/' + id).set(data);
+    showToast(editingId ? 'Cadastro atualizado' : 'Cadastro criado');
+    resetForm();
+  }catch(err){
+    showToast('Erro ao salvar: ' + err.message);
   }
+});
+
+/* start editing */
+function startEdit(id){
+  const p = cache[id];
+  if(!p) return showToast('Registro não encontrado');
+  editingId = id;
+  document.getElementById('nome').value = p.nome || '';
+  document.getElementById('cpf').value = p.cpf || '';
+  document.getElementById('idade').value = p.idade || '';
+  document.getElementById('altura').value = p.altura || '';
+  document.getElementById('sangue').value = p.sangue || '';
+  document.getElementById('obs').value = p.obs || '';
+  currentPhoto = p.foto || null;
+  preview.innerHTML = currentPhoto ? `<img src="${currentPhoto}" alt="foto">` : 'sem foto';
+  salvarBtn.innerText = 'Salvar alteração';
+  cancelEdit.style.display = 'inline-block';
+  // reset session timer on activity
+  if(auth.currentUser) startSessionTimer();
 }
 
-function reset(){
-  editingId=null;
+/* delete */
+function doDelete(id){
+  if(!confirm('Deseja apagar este cadastro?')) return;
+  db.ref('cadastros/' + id).remove().then(()=> showToast('Apagado'));
+}
+
+/* cancel / reset */
+cancelEdit.addEventListener('click', ()=>{
+  resetForm();
+});
+
+function resetForm(){
+  editingId = null;
   form.reset();
-  preview.innerText="sem foto";
-  salvarBtn.innerText="Salvar";
+  currentPhoto = null;
+  preview.innerText = 'sem foto';
+  salvarBtn.innerText = 'Salvar';
+  cancelEdit.style.display = 'none';
 }
 
-btnEntrar.onclick = ()=>auth.signInWithEmailAndPassword(loginEmail.value,loginSenha.value)
-  .catch(e=>loginMsg.innerText=e.message);
+/* =========================
+   helper: escape HTML
+   ========================= */
+function escapeHtml(str){
+  if(!str && str !== 0) return '';
+  return String(str).replace(/[&<>"'`]/g, s => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;',"`":'&#96;'}[s]));
+}
 
-btnRegistrar.onclick = ()=>auth.createUserWithEmailAndPassword(loginEmail.value,loginSenha.value)
-  .catch(e=>loginMsg.innerText=e.message);
+/* =========================
+   delegate edit/delete from render
+   ========================= */
+function startEditWrapper(id){ startEdit(id); }
+function doDeleteWrapper(id){ doDelete(id); }
+
+/* =========================
+   quick bind (for inline old handlers)
+   ========================= */
+window.edit = startEdit;
+window.del = doDelete;
+
+/* =========================
+   session start when page loaded (if already logged)
+   ========================= */
+if(auth.currentUser) startSessionTimer();
 </script>
 
 </body>
